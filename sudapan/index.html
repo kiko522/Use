@@ -1,0 +1,1220 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>수다판</title>
+<script type="application/nuojiji-manifest">
+{
+  "id": "sudapan-forum",
+  "name": "수다판",
+  "icon": "💬",
+  "version": "1.0.0",
+  "chrome": "none",
+  "permissions": ["ai", "roster.read", "feed.publish", "feed.actions", "chat.send"]
+}
+</script>
+<style>
+:root{
+  --bg:#ffffff; --bg2:#f3f4f7; --fg:#1d1d1f; --sub:#8a8f98; --line:#ebedf0;
+  --accent:#4b63d8; --accent-soft:#eef1fc; --hot:#e4473c; --zh:#737a85;
+  --zh-bg:#f7f8fa; --chip:#f0f1f4; --night-bg:#171a2c; --night-fg:#e6e8f5;
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    --bg:#141518; --bg2:#0c0d0f; --fg:#e9eaee; --sub:#8b909a; --line:#25272c;
+    --accent:#8798f2; --accent-soft:#1e2334; --hot:#ff6b5f; --zh:#9aa0aa;
+    --zh-bg:#1a1c20; --chip:#202227; --night-bg:#0f1120; --night-fg:#dfe2f5;
+  }
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%;overflow:hidden;background:var(--bg);color:var(--fg);
+  font:15px/1.55 -apple-system,"Apple SD Gothic Neo","Malgun Gothic","PingFang SC","Noto Sans KR",system-ui,sans-serif}
+button{font:inherit;color:inherit;cursor:pointer}
+input,textarea,select{font:inherit;font-size:16px;color:var(--fg)}
+#app{height:100%;display:flex;flex-direction:column;padding-top:var(--nuo-safe-top,0px);
+  padding-bottom:var(--nuo-safe-bottom,0px);background:var(--bg)}
+.view{flex:1;min-height:0;display:flex;flex-direction:column}
+
+/* top bar */
+.topbar{flex-shrink:0;display:flex;align-items:center;gap:4px;padding:8px 8px 8px 6px;
+  border-bottom:1px solid var(--line);background:var(--bg)}
+.icon-btn{min-width:40px;height:40px;border:0;background:none;border-radius:20px;font-size:20px;
+  display:flex;align-items:center;justify-content:center;padding:0 8px}
+.icon-btn:active{background:var(--chip)}
+.logo{font-weight:800;font-size:21px;letter-spacing:-.5px;color:var(--accent);padding:0 4px}
+.logo small{font-size:11px;font-weight:500;color:var(--sub);margin-left:6px;letter-spacing:0}
+.tb-title{font-weight:700;font-size:16px;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.spacer{flex:1}
+.text-btn{border:0;background:var(--accent);color:#fff;border-radius:16px;padding:7px 14px;font-weight:600;font-size:14px}
+.text-btn:disabled{opacity:.45}
+.spin{animation:spin 1s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* progress */
+.progress{flex-shrink:0;height:0;overflow:hidden;font-size:12px;color:var(--accent);background:var(--accent-soft);
+  transition:height .2s;display:flex;align-items:center;gap:8px;padding:0 14px}
+.progress.on{height:28px}
+.progress .dot{width:6px;height:6px;border-radius:3px;background:var(--accent);animation:blink 1s infinite}
+@keyframes blink{50%{opacity:.2}}
+
+/* tabs */
+.tabs{flex-shrink:0;display:flex;gap:2px;overflow-x:auto;padding:0 8px;border-bottom:1px solid var(--line);
+  scrollbar-width:none;background:var(--bg)}
+.tabs::-webkit-scrollbar{display:none}
+.tab{flex-shrink:0;border:0;background:none;padding:10px 10px 9px;font-size:14px;color:var(--sub);
+  border-bottom:2px solid transparent;min-height:44px}
+.tab.on{color:var(--fg);font-weight:700;border-bottom-color:var(--accent)}
+.tab .hotdot{color:var(--hot);font-weight:800}
+
+.scroll{flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch}
+.board-head{padding:12px 14px 8px;display:flex;align-items:baseline;gap:8px;border-bottom:1px solid var(--line)}
+.board-head b{font-size:17px}
+.board-head span{font-size:12px;color:var(--sub)}
+.hint{margin:10px 12px 0;padding:10px 12px;border-radius:10px;background:var(--accent-soft);font-size:12.5px;
+  color:var(--fg);display:flex;gap:8px;align-items:flex-start}
+.hint button{border:0;background:none;color:var(--sub);font-size:16px;padding:0 4px}
+
+/* list rows (board list style) */
+.row{display:block;width:100%;text-align:left;border:0;background:none;padding:11px 14px 10px;
+  border-bottom:1px solid var(--line)}
+.row:active{background:var(--chip)}
+.r-top{display:flex;gap:6px;align-items:center;font-size:11.5px;color:var(--sub);margin-bottom:2px}
+.cat{color:var(--sub)}
+.badge{font-size:10.5px;font-weight:800;padding:0 5px;border-radius:4px;line-height:16px}
+.badge.hot{color:#fff;background:var(--hot)}
+.badge.char{color:var(--accent);background:var(--accent-soft)}
+.badge.me{color:#fff;background:var(--accent)}
+.r-title{font-size:15.5px;font-weight:600;word-break:break-all}
+.cc{color:var(--hot);font-weight:700;font-size:13px;margin-left:4px}
+.r-zh{font-size:12.5px;color:var(--zh);margin-top:1px}
+.r-meta{font-size:11.5px;color:var(--sub);margin-top:4px}
+.empty{padding:60px 24px;text-align:center;color:var(--sub);font-size:14px}
+.empty button{margin-top:14px}
+
+/* night board */
+.night-theme .scroll,.night-theme .board-head,.night-theme .row{background:var(--night-bg);color:var(--night-fg)}
+.night-theme .row{border-color:rgba(255,255,255,.07)}
+.night-theme .board-head{border-color:rgba(255,255,255,.07)}
+
+/* post */
+.post-head{padding:14px 14px 10px;border-bottom:1px solid var(--line)}
+.p-cat{font-size:12px;color:var(--accent);font-weight:600}
+.p-title{font-size:19px;font-weight:700;margin:4px 0 2px;line-height:1.4;word-break:break-all}
+.p-title-zh{font-size:13.5px;color:var(--zh)}
+.p-meta{font-size:12px;color:var(--sub);margin-top:8px;display:flex;flex-wrap:wrap;gap:4px 8px;align-items:center}
+.author{border:0;background:none;padding:0;font-size:inherit;color:var(--fg);font-weight:600}
+.p-body{padding:16px 14px 6px;font-size:15.5px;line-height:1.75;white-space:pre-wrap;word-break:break-word}
+.zh{white-space:pre-wrap;word-break:break-word;color:var(--zh);font-size:13.5px;line-height:1.65}
+.zh-box{margin:4px 14px 10px;padding:10px 12px;border-radius:8px;background:var(--zh-bg)}
+.zh-label{font-size:11px;color:var(--sub);margin-bottom:2px}
+.tr-btn{border:0;background:none;color:var(--accent);font-size:12.5px;padding:6px 0;min-height:32px}
+.like-wrap{display:flex;justify-content:center;gap:10px;padding:18px 0 22px;border-bottom:8px solid var(--bg2)}
+.like-btn{border:1px solid var(--line);background:var(--bg);border-radius:22px;padding:9px 22px;font-size:15px;
+  font-weight:600;min-height:44px;display:flex;gap:6px;align-items:center}
+.like-btn.on{border-color:var(--hot);color:var(--hot)}
+.like-btn.share{font-weight:500;color:var(--sub)}
+.c-head{padding:12px 14px 8px;font-weight:700;font-size:14px;display:flex;align-items:center}
+.c-head span{color:var(--hot);margin-left:4px}
+.cmt{padding:10px 14px;border-top:1px solid var(--line)}
+.cmt.reply{padding-left:30px;background:var(--bg2)}
+.cmt.mine{background:var(--accent-soft)}
+.c-meta{font-size:12px;color:var(--sub);display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.c-no{font-weight:700;color:var(--fg)}
+.c-text{font-size:14.5px;margin-top:3px;white-space:pre-wrap;word-break:break-word}
+.c-to{color:var(--accent);font-weight:600;margin-right:4px}
+.c-zh{margin-top:2px}
+.c-actions{display:flex;gap:14px;margin-top:2px}
+.c-actions button{border:0;background:none;color:var(--sub);font-size:12px;padding:4px 0;min-height:30px}
+.typing{padding:12px 14px;font-size:13px;color:var(--sub);border-top:1px solid var(--line)}
+.more{display:block;width:calc(100% - 28px);margin:14px;padding:12px;border:1px dashed var(--line);border-radius:10px;
+  background:none;color:var(--accent);font-size:14px;min-height:44px}
+.bottom-pad{height:24px}
+
+/* comment bar */
+.bar{flex-shrink:0;border-top:1px solid var(--line);background:var(--bg);padding:8px}
+.reply-to{font-size:12px;color:var(--accent);padding:0 4px 6px;display:flex;justify-content:space-between}
+.reply-to button{border:0;background:none;color:var(--sub);padding:0 4px}
+.bar-row{display:flex;gap:6px;align-items:flex-end}
+.bar textarea{flex:1;resize:none;border:1px solid var(--line);border-radius:18px;padding:8px 12px;max-height:120px;
+  background:var(--bg2);line-height:1.4;min-height:40px}
+.anon-chip{flex-shrink:0;border:1px solid var(--line);background:var(--bg);border-radius:18px;height:40px;padding:0 10px;
+  font-size:12.5px;color:var(--sub)}
+.anon-chip.on{color:var(--accent);border-color:var(--accent)}
+.send{flex-shrink:0;height:40px;border:0;border-radius:20px;padding:0 16px;background:var(--accent);color:#fff;font-weight:700}
+.send:disabled{opacity:.45}
+
+/* forms */
+.form{padding:14px}
+.field{margin-bottom:16px}
+.field label,.f-label{display:block;font-size:12.5px;color:var(--sub);margin-bottom:6px}
+.inp{width:100%;border:1px solid var(--line);border-radius:10px;padding:10px 12px;background:var(--bg2)}
+textarea.inp{min-height:180px;resize:vertical;line-height:1.6}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{border:1px solid var(--line);background:var(--bg);border-radius:16px;padding:7px 13px;font-size:13.5px;min-height:36px}
+.chip.on{background:var(--accent);border-color:var(--accent);color:#fff}
+.switch-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 0;border-bottom:1px solid var(--line)}
+.switch-row .t{font-size:14.5px}
+.switch-row .d{font-size:12px;color:var(--sub);margin-top:1px}
+.sw{flex-shrink:0;width:50px;height:30px;border-radius:15px;border:0;background:var(--line);position:relative;transition:background .2s}
+.sw::after{content:"";position:absolute;top:3px;left:3px;width:24px;height:24px;border-radius:12px;background:#fff;
+  box-shadow:0 1px 3px rgba(0,0,0,.25);transition:left .2s}
+.sw.on{background:var(--accent)}
+.sw.on::after{left:23px}
+.note{font-size:12px;color:var(--sub);line-height:1.6}
+.sec{font-size:12px;font-weight:700;color:var(--sub);margin:22px 0 4px;letter-spacing:.3px}
+.char-card{border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin-bottom:10px}
+.char-card .top{display:flex;align-items:center;gap:10px}
+.char-card .nm{flex:1;font-weight:600}
+.char-card .sub{margin-top:8px;display:flex;flex-direction:column;gap:8px}
+.char-card.off .sub{display:none}
+.danger{width:100%;border:1px solid var(--hot);color:var(--hot);background:none;border-radius:10px;padding:11px;margin-top:8px;min-height:44px}
+
+.toast{position:fixed;left:50%;bottom:calc(var(--nuo-safe-bottom,0px) + 80px);transform:translateX(-50%) translateY(20px);
+  background:rgba(30,30,34,.94);color:#fff;font-size:13px;padding:9px 14px;border-radius:10px;max-width:86%;
+  opacity:0;pointer-events:none;transition:all .25s;z-index:50;text-align:center}
+.toast.on{opacity:1;transform:translateX(-50%) translateY(0)}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div class="toast" id="toast"></div>
+<script>
+'use strict';
+/* ==========================================================
+ * 수다판 — 韩式匿名论坛（糯叽机微应用）
+ * 帖子/评论：韩语网络用语 + 中文翻译
+ * 发帖人：随机路人（AI）、你的角色（AI + charId）、用户本人
+ * 聊天联动：feed.publish 供稿 / actions 角色写入 / nudge 提醒
+ * ========================================================== */
+
+const BOARDS = {
+  movie: { ko: '영화·드라마', zh: '影视', topics: '드라마·영화 감상, 연기 얘기, 결말 토론, 작품 추천 요청, 명장면, OST, 시청률/캐스팅 소식(가상)' },
+  chat:  { ko: '잡담', zh: '闲聊', topics: '일상 잡담, 회사/학교, 음식·배달, 쇼핑, 소소한 질문, 웃긴 썰, 나만 그래?' },
+  love:  { ko: '연애', zh: '情感', topics: '연애 고민, 썸, 짝사랑, 이별, 결혼, 친구·가족 관계, 인간관계 손절' },
+  night: { ko: '심야', zh: '深夜', topics: '새벽 감성, 잠 안 올 때, 무서운 썰, 진지한 고백, 외로움, 야식, 인생 고민' },
+};
+const BOARD_KEYS = Object.keys(BOARDS);
+const ANON = '무명의 수다러';
+const ACTIVITY = { low: 0.15, normal: 0.35, high: 0.6 };
+const MAX_POSTS = 300;
+
+const STYLE = [
+  '你是韩国匿名女性向论坛（类似 theqoo 那种氛围）的内容生成器。论坛名叫「수다판」，匿名用户统一显示为「무명의 수다러」。',
+  '韩语规则：必须像真实韩国网络社区的帖子/评论——음슴체(~함/~임/~음)、반말、ㅋㅋㅋ、ㅠㅠ、ㄹㅇ、ㅇㅇ、개-、핵-、존-、미쳤다、오열、ㄱㅇㄷ、원덬/덬들아(可改用 수다러들아) 等，语气长短不一，有人认真有人敷衍，有吐槽有共感。',
+  '每段韩语都要配一段中文翻译：自然的中文网络口吻，不要逐字硬译。',
+  '内容规则：不要编造真实存在的明星、名人或真人的绯闻、丑闻、私生活爆料；聊真实影视作品时只做正常的观后感和评价；八卦类内容请使用虚构的艺人和作品名。',
+  '只输出 JSON，不要任何解释，不要代码块。',
+].join('\n');
+
+/* ---------------- 小工具 ---------------- */
+const $ = (s) => document.querySelector(s);
+function h(tag, props, ...kids) {
+  const el = document.createElement(tag);
+  if (props) for (const k in props) {
+    const v = props[k];
+    if (v == null || v === false) continue;
+    if (k === 'class') el.className = v;
+    else if (k === 'text') el.textContent = v;
+    else if (k.startsWith('on')) el.addEventListener(k.slice(2), v);
+    else if (k === 'style') el.style.cssText = v;
+    else el.setAttribute(k, v === true ? '' : v);
+  }
+  for (const c of kids.flat()) {
+    if (c == null || c === false) continue;
+    el.append(c.nodeType ? c : document.createTextNode(String(c)));
+  }
+  return el;
+}
+const rand = (a, b) => a + Math.floor(Math.random() * (b - a + 1));
+const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
+const uid = (p) => p + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+const clean = (s, n) => String(s == null ? '' : s).trim().slice(0, n);
+const hasHangul = (s) => /[가-힣]/.test(s);
+const fmtNum = (n) => Number(n || 0).toLocaleString('en-US');
+function fmtTime(ts) {
+  const d = new Date(ts), now = new Date();
+  const diff = (now - d) / 60000;
+  if (diff < 1) return '방금';
+  if (diff < 60) return Math.floor(diff) + '분 전';
+  const pad = (x) => String(x).padStart(2, '0');
+  if (d.toDateString() === now.toDateString()) return pad(d.getHours()) + ':' + pad(d.getMinutes());
+  return pad(d.getMonth() + 1) + '.' + pad(d.getDate());
+}
+function toast(msg, ms) {
+  const t = $('#toast');
+  t.textContent = msg;
+  t.classList.add('on');
+  clearTimeout(toast._t);
+  toast._t = setTimeout(() => t.classList.remove('on'), ms || 2600);
+}
+function normBoard(b) {
+  b = String(b || '').toLowerCase();
+  if (BOARDS[b]) return b;
+  if (/影|剧|movie|drama|film|영화|드라마/.test(b)) return 'movie';
+  if (/情|爱|恋|love|연애|사랑/.test(b)) return 'love';
+  if (/夜|night|심야|새벽/.test(b)) return 'night';
+  return 'chat';
+}
+function parseJSON(t) {
+  if (t == null) return null;
+  if (typeof t === 'object') return t;
+  t = String(t).replace(/```(?:json)?/gi, '').trim();
+  const tryP = (s) => {
+    try { return JSON.parse(s); } catch (e) {
+      try { return JSON.parse(s.replace(/,\s*([\]}])/g, '$1')); } catch (e2) { return undefined; }
+    }
+  };
+  let r = tryP(t);
+  if (r !== undefined) return r;
+  const starts = [t.indexOf('['), t.indexOf('{')].filter((i) => i >= 0).sort((a, b) => a - b);
+  for (const s of starts) {
+    const e = t.lastIndexOf(t[s] === '[' ? ']' : '}');
+    if (e > s) { r = tryP(t.slice(s, e + 1)); if (r !== undefined) return r; }
+  }
+  return null;
+}
+function asArray(x) {
+  if (Array.isArray(x)) return x;
+  if (x && typeof x === 'object') {
+    for (const k of ['posts', 'comments', 'items', 'replies', 'data']) if (Array.isArray(x[k])) return x[k];
+    return [x];
+  }
+  return [];
+}
+const hasNuo = () => typeof window.nuo === 'object' && window.nuo;
+
+/* ---------------- 状态与存档 ---------------- */
+const state = {
+  posts: [],
+  settings: {
+    myNick: '', myAnon: true, activity: 'normal', showZh: true,
+    feed: true, actions: true, eagerness: 'normal', revealAnonChar: true,
+    nudgeOnPost: true, hintClosed: false,
+  },
+  chars: [],          // 名册：[{id, name}]
+  charCfg: {},        // { [id]: { on, nick, anon: 'always'|'sometimes'|'never' } }
+  lastOpen: 0,
+};
+const ui = { view: 'list', board: 'hot', postId: null, replyTo: null, cAnon: true, busy: '', listScroll: 0 };
+
+const store = {
+  async get(k) {
+    try {
+      const v = await nuo.storage.get(k);
+      return typeof v === 'string' ? JSON.parse(v) : (v == null ? null : v);
+    } catch (e) {
+      try { return JSON.parse(localStorage.getItem('sp_' + k)); } catch (e2) { return null; }
+    }
+  },
+  async set(k, v) {
+    const s = JSON.stringify(v);
+    try { await nuo.storage.set(k, s); }
+    catch (e) { try { localStorage.setItem('sp_' + k, s); } catch (e2) { console.error('save failed', e2); } }
+  },
+};
+let saveTimer = null;
+function save() {
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(async () => {
+    await store.set('posts', state.posts);
+    await store.set('settings', state.settings);
+    await store.set('charCfg', state.charCfg);
+  }, 300);
+  schedulePublish();
+}
+
+/* ---------------- 身份 ---------------- */
+const npcAuthor = () => ({ kind: 'npc', anon: true, name: ANON });
+const userAuthor = (anon) => ({ kind: 'user', anon: !!anon, name: state.settings.myNick || '나' });
+function charAuthor(ch, anon) {
+  const cfg = state.charCfg[ch.id] || {};
+  return { kind: 'char', anon: !!anon, name: cfg.nick || ch.name, charId: ch.id, charName: ch.name };
+}
+const displayName = (a) => (a.anon ? ANON : a.name);
+function decideAnon(ch) {
+  const m = (state.charCfg[ch.id] || {}).anon || 'sometimes';
+  return m === 'always' ? true : m === 'never' ? false : Math.random() < 0.5;
+}
+const enabledChars = () => state.chars.filter((c) => (state.charCfg[c.id] || {}).on !== false);
+function maybeChar(bonus) {
+  const list = enabledChars();
+  if (!list.length) return null;
+  return Math.random() < (ACTIVITY[state.settings.activity] || 0.35) + (bonus || 0) ? pick(list) : null;
+}
+const charById = (id) => state.chars.find((c) => c.id === String(id));
+
+function makePost(o) {
+  return Object.assign({
+    id: uid('p'), board: 'chat', title: { ko: '', zh: '' }, body: { ko: '', zh: '' },
+    author: npcAuthor(), createdAt: Date.now(), views: 1, likes: 0, liked: false,
+    comments: [], generated: false,
+  }, o);
+}
+function makeComment(o) {
+  return Object.assign({ id: uid('c'), author: npcAuthor(), text: { ko: '', zh: '' }, createdAt: Date.now(), likes: 0, liked: false, replyTo: null }, o);
+}
+const score = (p) => p.likes * 3 + p.comments.length * 2 + p.views / 150;
+function hotIds() {
+  const since = Date.now() - 3 * 86400e3;
+  return new Set(state.posts.filter((p) => p.createdAt > since).sort((a, b) => score(b) - score(a)).slice(0, 6).map((p) => p.id));
+}
+const curPost = () => state.posts.find((p) => p.id === ui.postId);
+
+/* ---------------- AI ---------------- */
+function aiError(e) {
+  const m = String((e && (e.message || e.code)) || e || '');
+  const map = {
+    permissionDenied: '没有 AI 权限：去 App 详情页点「授予这些能力」',
+    quotaExceeded: '刷得太快了，歇一下再来（每分钟最多 20 次）',
+    rateLimited: '刷得太快了，歇一下再来（每分钟最多 20 次）',
+    noApi: '还没配置 API：去糯叽机设置里配好「游戏 API」或主 API',
+    timeout: 'AI 超时了，再试一次',
+  };
+  return new Error(map[m] || ('AI 出错：' + m));
+}
+async function ai(messages, opts) {
+  if (!hasNuo() || !nuo.ai) throw new Error('这里没有 nuo 接口（需要在糯叽机里运行）');
+  try {
+    const r = await nuo.ai.chat(messages, opts);
+    return r && typeof r === 'object' ? r.text : r;
+  } catch (e) { throw aiError(e); }
+}
+function setBusy(text) {
+  ui.busy = text || '';
+  const p = $('#progress');
+  if (p) { p.classList.toggle('on', !!ui.busy); const s = p.querySelector('span'); if (s) s.textContent = ui.busy; }
+  const r = $('#refreshIco');
+  if (r) r.classList.toggle('spin', !!ui.busy);
+  const ty = $('#typing');
+  if (ty) { ty.style.display = ui.busy ? '' : 'none'; ty.textContent = '··· ' + ui.busy; }
+  document.querySelectorAll('[data-needs-idle]').forEach((b) => { b.disabled = !!ui.busy; });
+}
+
+function charSystem(ch, anon) {
+  const cfg = state.charCfg[ch.id] || {};
+  return STYLE + '\n\n' + [
+    '【重要】这次你不是旁白，你就是这个角色本人，正在逛韩国匿名论坛「수다판」。',
+    '保持你的人设、性格、说话习惯、经历，以及你和用户的关系；但要用韩国网络社区的口吻写韩语（口吻要符合你的性格），并附自然的中文翻译。',
+    anon ? '这次你是匿名发言（显示为「무명의 수다러」），没有人知道是你，可以说些平时不好意思说的话。'
+         : '这次你用论坛昵称「' + (cfg.nick || ch.name) + '」实名发言，大家都知道是你。',
+  ].join('\n');
+}
+function authorForPrompt(a, forCharId) {
+  if (a.kind === 'char' && forCharId && a.charId === forCharId) return '你自己' + (a.anon ? '（匿名发的）' : '');
+  if (a.kind === 'user') return a.anon ? ANON : ('用户本人「' + a.name + '」' + (forCharId ? '（就是你认识的那个人）' : ''));
+  return displayName(a);
+}
+function postContext(p, forCharId, maxC) {
+  const lines = [
+    '【帖子】[' + BOARDS[p.board].ko + '] ' + p.title.ko,
+    p.body.ko,
+    '发帖人：' + authorForPrompt(p.author, forCharId),
+  ];
+  const cs = p.comments.slice(-(maxC || 15));
+  if (cs.length) {
+    lines.push('【评论区】');
+    const base = p.comments.length - cs.length;
+    cs.forEach((c, i) => {
+      const to = c.replyTo ? ('(→' + floorOf(p, c.replyTo) + '楼) ') : '';
+      lines.push((base + i + 1) + '楼 ' + authorForPrompt(c.author, forCharId) + ': ' + to + c.text.ko);
+    });
+  }
+  return lines.join('\n');
+}
+const floorOf = (p, cid) => p.comments.findIndex((c) => c.id === cid) + 1;
+
+async function genNpcPosts(boardKey) {
+  const boards = BOARDS[boardKey] ? [boardKey] : BOARD_KEYS;
+  const n = boards.length === 1 ? 5 : 6;
+  const recent = state.posts.slice(0, 30).map((p) => p.title.ko).join(' / ');
+  const prompt = [
+    '生成 ' + n + ' 个新帖子，版块只能从这些里选：' + boards.map((b) => b + '(' + BOARDS[b].ko + '：' + BOARDS[b].topics + ')').join('；'),
+    '返回 JSON 数组，每项格式：',
+    '{"board":"' + boards.join('|') + '","title_ko":"","title_zh":"","body_ko":"","body_zh":"","comments":[{"ko":"","zh":""}]}',
+    '要求：body 2~8 行（可用 \\n 换行）；comments 3~6 条短评论（有人共感、有人吐槽、有人跑题）；题材彼此不同。',
+    recent ? '不要和这些已有标题重复：' + recent : '',
+  ].join('\n');
+  const text = await ai([{ role: 'system', content: STYLE }, { role: 'user', content: prompt }]);
+  const arr = asArray(parseJSON(text));
+  const now = Date.now();
+  const out = [];
+  for (const it of arr) {
+    if (!it || !it.title_ko) continue;
+    const created = now - rand(0, 150) * 60000;
+    const p = makePost({
+      board: boards.length === 1 ? boards[0] : normBoard(it.board),
+      title: { ko: clean(it.title_ko, 120), zh: clean(it.title_zh, 120) },
+      body: { ko: clean(it.body_ko, 3000), zh: clean(it.body_zh, 3000) },
+      createdAt: created, views: rand(40, 2400), likes: rand(0, 50), generated: true,
+    });
+    asArray(it.comments).slice(0, 8).forEach((c, i) => {
+      if (c && c.ko) p.comments.push(makeComment({
+        text: { ko: clean(c.ko, 600), zh: clean(c.zh, 600) },
+        createdAt: Math.min(now, created + (i + 1) * rand(1, 10) * 60000), likes: rand(0, 12),
+      }));
+    });
+    out.push(p);
+  }
+  if (!out.length) throw new Error('AI 返回的格式没看懂，再刷一次试试');
+  return out;
+}
+
+async function genCharPost(ch, boardKey) {
+  const anon = decideAnon(ch);
+  const boards = BOARDS[boardKey] ? [boardKey] : BOARD_KEYS;
+  const prompt = [
+    '挑一个你此刻真的想在论坛上发的话题（可以是你最近的经历、心事、对什么的感想、想问网友的问题），',
+    '版块从这些里选：' + boards.map((b) => b + '(' + BOARDS[b].ko + ')').join('、') + '。',
+    '返回 JSON：{"board":"","title_ko":"","title_zh":"","body_ko":"","body_zh":""}，body 2~8 行。',
+  ].join('\n');
+  const text = await ai([{ role: 'system', content: charSystem(ch, anon) }, { role: 'user', content: prompt }], { charId: ch.id });
+  const it = asArray(parseJSON(text))[0];
+  if (!it || !it.title_ko) return null;
+  return makePost({
+    board: boards.length === 1 ? boards[0] : normBoard(it.board),
+    title: { ko: clean(it.title_ko, 120), zh: clean(it.title_zh, 120) },
+    body: { ko: clean(it.body_ko, 3000), zh: clean(it.body_zh, 3000) },
+    author: charAuthor(ch, anon), views: rand(10, 300), likes: rand(0, 8),
+  });
+}
+
+async function genCharComment(p, ch, target) {
+  const anon = decideAnon(ch);
+  let ask = postContext(p, ch.id) + '\n\n';
+  if (target) {
+    const who = target.author.kind === 'user'
+      ? (target.author.anon ? '（这条是匿名的）' : '（这条是用户本人写的）')
+      : (target.author.kind === 'char' && target.author.charId === ch.id ? '（这是你自己之前的评论）' : '');
+    ask += '请你回复 ' + floorOf(p, target.id) + ' 楼：「' + target.text.ko + '」' + who + '\n';
+  }
+  ask += '以你自己的身份写一条评论（1~3 句）。返回 JSON：{"ko":"","zh":""}';
+  const text = await ai([{ role: 'system', content: charSystem(ch, anon) }, { role: 'user', content: ask }], { charId: ch.id });
+  const it = asArray(parseJSON(text))[0];
+  if (!it || !it.ko) return null;
+  return makeComment({ author: charAuthor(ch, anon), text: { ko: clean(it.ko, 600), zh: clean(it.zh, 600) }, replyTo: target ? target.id : null });
+}
+
+async function genMoreComments(p) {
+  const prompt = postContext(p, null, 20) + '\n\n' + [
+    '再生成 3~5 条新的网友评论，可以回复前面的楼层（reply_to 填楼层号，不回复就填 null）。',
+    p.body.zh ? '' : '另外帖子还没有中文翻译，请顺便给出 title_zh 和 body_zh。',
+    '返回 JSON：{' + (p.body.zh ? '' : '"title_zh":"","body_zh":"",') + '"comments":[{"ko":"","zh":"","reply_to":null}]}',
+  ].join('\n');
+  const r = parseJSON(await ai([{ role: 'system', content: STYLE }, { role: 'user', content: prompt }]));
+  if (r && !Array.isArray(r) && !p.body.zh) {
+    if (r.title_zh) p.title.zh = clean(r.title_zh, 120);
+    if (r.body_zh) p.body.zh = clean(r.body_zh, 3000);
+  }
+  let n = 0;
+  for (const c of asArray(r)) {
+    if (!c || !c.ko) continue;
+    const t = p.comments[(Number(c.reply_to) || 0) - 1];
+    p.comments.push(makeComment({ text: { ko: clean(c.ko, 600), zh: clean(c.zh, 600) }, replyTo: t ? t.id : null, likes: rand(0, 6) }));
+    n++;
+  }
+  return n;
+}
+
+async function translate(obj) {
+  const r = parseJSON(await ai([
+    { role: 'system', content: '把下面的韩语网络用语翻译成自然的中文网络口吻，保留语气。只输出 JSON：{"zh":""}' },
+    { role: 'user', content: obj.ko },
+  ]));
+  const it = asArray(r)[0];
+  if (it && it.zh) obj.zh = clean(it.zh, 3000);
+}
+
+/* ---------------- 流程 ---------------- */
+async function refresh() {
+  if (ui.busy) return;
+  const board = BOARDS[ui.board] ? ui.board : null;
+  setBusy('수다러들이 글 쓰는 중… 路人们正在发帖');
+  try {
+    const posts = await genNpcPosts(board);
+    state.posts.unshift(...posts);
+    const ch = maybeChar();
+    if (ch) {
+      setBusy(((state.charCfg[ch.id] || {}).nick || ch.name) + ' 正在发帖…');
+      try { const cp = await genCharPost(ch, board); if (cp) state.posts.unshift(cp); }
+      catch (e) { console.warn('char post failed', e); }
+    }
+    state.posts.sort((a, b) => b.createdAt - a.createdAt);
+    prune();
+    save();
+    toast('새 글 ' + posts.length + '개 · 刷出了新帖子');
+  } catch (e) { toast(e.message, 4000); }
+  setBusy('');
+  if (ui.view === 'list') renderList();
+}
+
+function prune() {
+  if (state.posts.length <= MAX_POSTS) return;
+  const keep = (p) => p.author.kind !== 'npc' || p.liked || p.comments.some((c) => c.author.kind !== 'npc');
+  const sorted = state.posts.slice().sort((a, b) => b.createdAt - a.createdAt);
+  const result = [];
+  let npcLeft = MAX_POSTS - sorted.filter(keep).length;
+  for (const p of sorted) { if (keep(p)) result.push(p); else if (npcLeft-- > 0) result.push(p); }
+  state.posts = result;
+}
+
+async function openPost(id) {
+  const p = state.posts.find((x) => x.id === id);
+  if (!p) return;
+  if (ui.view === 'list') { const sc = $('#listScroll'); ui.listScroll = sc ? sc.scrollTop : 0; }
+  p.views += rand(1, 3);
+  ui.view = 'post'; ui.postId = id; ui.replyTo = null; ui.cAnon = state.settings.myAnon;
+  render();
+  save();
+  // 角色从聊天里发的帖子、或还没评论的帖子：进来时让路人们补评论
+  if (!p.generated && !ui.busy) {
+    p.generated = true;
+    setBusy('댓글 달리는 중… 评论正在出现');
+    try { await genMoreComments(p); save(); } catch (e) { p.generated = false; toast(e.message, 4000); }
+    setBusy('');
+    if (ui.postId === id) { renderHead(); renderComments(); }
+  }
+}
+
+async function submitPost(form) {
+  const title = form.title.trim(), body = form.body.trim();
+  if (!title || !body) { toast('标题和正文都要写哦'); return; }
+  const p = makePost({
+    board: form.board, title: { ko: title, zh: hasHangul(title) ? '' : title },
+    body: { ko: body, zh: hasHangul(body) ? '' : body }, author: userAuthor(form.anon), views: 1,
+  });
+  state.posts.unshift(p);
+  save();
+  ui.view = 'post'; ui.postId = p.id; ui.cAnon = form.anon;
+  render();
+  setBusy('翻译成韩语并等待网友评论…');
+  try {
+    const prompt = [
+      '用户要在「' + BOARDS[p.board].ko + '」版发帖，原文可能是中文也可能是韩语：',
+      '标题：' + title, '正文：' + body,
+      '1) 改写成韩国网络社区口吻的韩语 title_ko / body_ko（保持原意，不要加戏；原文已是韩语就基本保留），并给出中文 title_zh / body_zh（原文是中文就保留原文）；',
+      '2) 生成 3~6 条网友评论。',
+      '返回 JSON：{"title_ko":"","title_zh":"","body_ko":"","body_zh":"","comments":[{"ko":"","zh":""}]}',
+    ].join('\n');
+    const r = asArray(parseJSON(await ai([{ role: 'system', content: STYLE }, { role: 'user', content: prompt }])))[0] || {};
+    if (r.title_ko) p.title = { ko: clean(r.title_ko, 120), zh: clean(r.title_zh, 120) || p.title.zh };
+    if (r.body_ko) p.body = { ko: clean(r.body_ko, 3000), zh: clean(r.body_zh, 3000) || p.body.zh };
+    asArray(r.comments).slice(0, 8).forEach((c) => {
+      if (c && c.ko) p.comments.push(makeComment({ text: { ko: clean(c.ko, 600), zh: clean(c.zh, 600) }, likes: rand(0, 5) }));
+    });
+    p.views += rand(20, 120); p.likes += rand(0, 6);
+    p.generated = true;
+    save();
+    if (ui.postId === p.id) render();
+    const ch = maybeChar(0.25);
+    if (ch) {
+      setBusy(((state.charCfg[ch.id] || {}).nick || ch.name) + ' 正在输入…');
+      const c = await genCharComment(p, ch, null);
+      if (c) { p.comments.push(c); save(); }
+    }
+  } catch (e) { toast(e.message, 4000); }
+  setBusy('');
+  if (ui.postId === p.id) render();
+  if (form.tell) await nudge('用户刚在수다판「' + BOARDS[p.board].zh + '」版' + (p.author.anon ? '匿名' : '') + '发了帖子：' + (p.title.zh || p.title.ko), p.id, null, true);
+}
+
+async function submitComment(text) {
+  const p = curPost();
+  if (!p || !text || ui.busy) return;
+  const target = ui.replyTo ? p.comments.find((c) => c.id === ui.replyTo) : null;
+  const c = makeComment({ author: userAuthor(ui.cAnon), text: { ko: text, zh: '' }, replyTo: target ? target.id : null });
+  p.comments.push(c);
+  ui.replyTo = null;
+  save();
+  renderComments(true);
+  renderBar();
+  setBusy('댓글 달리는 중…');
+  try {
+    const prompt = postContext(p, null, 20) + '\n\n' + [
+      '最后一楼是用户刚写的评论（原文可能是中文）：「' + text + '」',
+      '1) 把它改写成韩国网络社区口吻的韩语 user_ko（保持原意；原文是韩语就基本保留）和中文 user_zh（原文是中文就保留原文）；',
+      '2) 生成 1~3 条其他网友接着的评论（可以回复用户，to_user 填 true）。',
+      '返回 JSON：{"user_ko":"","user_zh":"","replies":[{"ko":"","zh":"","to_user":true}]}',
+    ].join('\n');
+    const r = asArray(parseJSON(await ai([{ role: 'system', content: STYLE }, { role: 'user', content: prompt }])))[0] || {};
+    c.text.ko = clean(r.user_ko, 600) || text;
+    c.text.zh = clean(r.user_zh, 600) || (hasHangul(text) ? '' : text);
+    asArray(r.replies).slice(0, 3).forEach((x) => {
+      if (x && x.ko) p.comments.push(makeComment({ text: { ko: clean(x.ko, 600), zh: clean(x.zh, 600) }, replyTo: x.to_user ? c.id : null }));
+    });
+    save();
+    if (ui.postId === p.id) renderComments(true);
+    // 谁会是回复的角色：被回复的角色 > 发帖角色 > 随机角色
+    let ch = null;
+    if (target && target.author.kind === 'char') ch = charById(target.author.charId);
+    else if (p.author.kind === 'char' && Math.random() < 0.7) ch = charById(p.author.charId);
+    if (!ch) ch = maybeChar();
+    if (ch && (state.charCfg[ch.id] || {}).on !== false) {
+      setBusy(((state.charCfg[ch.id] || {}).nick || ch.name) + ' 正在输入…');
+      const cc = await genCharComment(p, ch, c);
+      if (cc) { p.comments.push(cc); save(); }
+    }
+  } catch (e) {
+    if (!c.text.zh && !hasHangul(text)) c.text.zh = text;
+    toast(e.message, 4000);
+  }
+  setBusy('');
+  if (ui.postId === p.id) renderComments(true);
+  if (target && target.author.kind === 'char' && state.settings.nudgeOnPost) {
+    nudge('用户在수다판回复了你' + (target.author.anon ? '匿名' : '') + '写的评论：「' + (c.text.zh || c.text.ko) + '」', p.id, [target.author.charId], false);
+  }
+}
+
+async function moreComments() {
+  const p = curPost();
+  if (!p || ui.busy) return;
+  setBusy('댓글 더 불러오는 중…');
+  try {
+    const n = await genMoreComments(p);
+    p.views += rand(5, 40);
+    const ch = maybeChar();
+    if (ch) {
+      setBusy(((state.charCfg[ch.id] || {}).nick || ch.name) + ' 正在输入…');
+      const cc = await genCharComment(p, ch, Math.random() < 0.5 ? pick(p.comments) : null);
+      if (cc) p.comments.push(cc);
+    }
+    save();
+    if (!n) toast('这次没生成出评论，再点一次试试');
+  } catch (e) { toast(e.message, 4000); }
+  setBusy('');
+  if (ui.postId === p.id) { renderHead(); renderComments(true); }
+}
+
+/* ---------------- 聊天联动 ---------------- */
+function postCard(p) {
+  const cs = p.comments.filter((c) => !c.replyTo).slice(0, 2);
+  const blocks = [
+    { type: 'text', text: BOARDS[p.board].ko + ' · ' + displayName(p.author) + ' · ' + fmtTime(p.createdAt), size: 'xs', color: '#8a8f98' },
+    { type: 'heading', text: p.title.ko.slice(0, 120) },
+  ];
+  if (p.title.zh) blocks.push({ type: 'text', text: p.title.zh.slice(0, 600), size: 'sm', color: '#737a85' });
+  blocks.push({ type: 'divider' });
+  blocks.push({ type: 'text', text: p.body.ko.slice(0, 600), clamp: 4 });
+  if (p.body.zh) blocks.push({ type: 'text', text: p.body.zh.slice(0, 600), size: 'sm', color: '#737a85', clamp: 3 });
+  blocks.push({ type: 'stat', items: { '추천': fmtNum(p.likes), '댓글': fmtNum(p.comments.length), '조회': fmtNum(p.views) } });
+  cs.forEach((c) => blocks.push({ type: 'quote', text: ('ㄴ ' + c.text.ko).slice(0, 120) }));
+  return {
+    title: p.title.ko.slice(0, 60),
+    footer: ('💬 수다판 · ' + BOARDS[p.board].ko).slice(0, 30),
+    layout: 'list',
+    theme: {
+      background: '#ffffff', headerBackground: '#ffffff', color: '#1d1d1f', labelColor: '#8a8f98',
+      borderColor: '#e6e8ee', accent: '#4b63d8', radius: 10, width: 270, font: 'system', hideHeader: true,
+    },
+    blocks,
+  };
+}
+function feedDesc(p, mine) {
+  let who;
+  if (mine) who = '这是你自己' + (p.author.anon ? '匿名' : '') + '发的帖子';
+  else if (p.author.kind === 'user' && !p.author.anon) who = '用户本人发的帖子';
+  else if (p.author.kind === 'char' && !p.author.anon) who = '「' + p.author.name + '」(' + (p.author.charName || '') + ')发的帖子';
+  else who = '匿名帖';
+  return ('[' + BOARDS[p.board].zh + '] ' + who + ' · 推荐' + p.likes + ' 评论' + p.comments.length + ' · ' + p.title.ko + ' — ' + (p.body.zh || p.body.ko).replace(/\s+/g, ' ')).slice(0, 200);
+}
+function feedItems() {
+  const hot = hotIds();
+  const special = state.posts.filter((p) => p.author.kind !== 'npc').slice(0, 10);
+  const rest = state.posts.filter((p) => p.author.kind === 'npc').sort((a, b) => (hot.has(b.id) - hot.has(a.id)) || (b.createdAt - a.createdAt));
+  const items = [];
+  for (const p of special.concat(rest)) {
+    if (items.length >= 20) break;
+    const base = { title: (p.title.zh || p.title.ko).slice(0, 60), card: postCard(p) };
+    if (p.author.kind === 'char' && p.author.anon && p.author.charId) {
+      // 匿名角色帖：作者本人知道是自己写的，其他角色只看到匿名
+      items.push(Object.assign({ id: p.id, desc: feedDesc(p, false), notChars: [p.author.charId] }, base));
+      if (items.length < 20) items.push(Object.assign({ id: p.id + '.mine', desc: feedDesc(p, true), chars: [p.author.charId] }, base));
+    } else {
+      items.push(Object.assign({ id: p.id, desc: feedDesc(p, false) }, base));
+    }
+  }
+  return items;
+}
+let pubTimer = null;
+function schedulePublish() { clearTimeout(pubTimer); pubTimer = setTimeout(publishFeed, 1500); }
+async function publishFeed() {
+  clearTimeout(pubTimer);
+  if (!hasNuo() || !nuo.feed) return;
+  try {
+    if (!state.settings.feed || !state.posts.length) { await nuo.feed.clear(); return; }
+    await nuo.feed.publish({
+      summary: '用户常逛的韩国匿名论坛「수다판」（氛围类似 theqoo）。版块：영화·드라마(影视)/잡담(闲聊)/연애(情感)/심야(深夜)。帖子和评论都是韩语网络用语，附中文翻译。下面是最近的热帖，以及用户和角色们发过的帖子。',
+      guide: '用户聊到相关话题、说无聊、或提起论坛时，可以挑一个对应的帖子发给用户一起看（一次一张），用你自己的口吻吐槽或评论两句。标着「匿名帖」的你不知道作者是谁；标着「你自己发的」才是你写的。不要每轮都发。',
+      items: feedItems(),
+    });
+  } catch (e) { console.warn('feed.publish failed', e && e.message); }
+}
+async function nudge(text, itemId, chars, now) {
+  if (!hasNuo() || !nuo.feed || !state.settings.feed) return;
+  try {
+    await publishFeed();
+    const opt = { itemId, now: now !== false };
+    if (chars) opt.chars = chars.map(String);
+    await nuo.feed.nudge(text.slice(0, 300), opt);
+  } catch (e) { console.warn('nudge failed', e && e.message); }
+}
+async function declareActions() {
+  if (!hasNuo() || !nuo.actions) return;
+  try {
+    if (!state.settings.actions) { await nuo.actions.declare([]); return; }
+    await nuo.actions.declare([
+      {
+        id: 'writePost', title: '在수다판发帖', desc: '以你自己的身份在韩国匿名论坛「수다판」发一个帖子',
+        fields: [
+          { name: 'board', desc: '版块：movie(影视) / chat(闲聊) / love(情感) / night(深夜)', required: true },
+          { name: 'title_ko', desc: '韩语标题，韩国网络社区口吻', required: true },
+          { name: 'body_ko', desc: '韩语正文，2~8 行', required: true },
+          { name: 'title_zh', desc: '标题的中文翻译' },
+          { name: 'body_zh', desc: '正文的中文翻译' },
+          { name: 'anon', desc: 'yes = 匿名发（别人不知道是你），no = 用你的论坛昵称实名发' },
+        ],
+      },
+      {
+        id: 'writeComment', title: '在수다판评论', desc: '在供稿清单里的某个帖子下面留言',
+        fields: [
+          { name: 'postId', desc: '帖子 id，只能用수다판供稿清单里出现过的 id', required: true },
+          { name: 'ko', desc: '韩语评论，1~3 句', required: true },
+          { name: 'zh', desc: '评论的中文翻译' },
+          { name: 'anon', desc: 'yes = 匿名，no = 实名' },
+        ],
+      },
+    ], {
+      guide: '用户聊到论坛、想听网友意见，或你自己有想匿名倾诉/吐槽的事时，可以去수다판发帖或评论用户的帖子。实名发的话可以在回复里自然提一句；匿名发的可以选择不说。不要每轮都发。',
+      eagerness: state.settings.eagerness,
+    });
+  } catch (e) { console.warn('actions.declare failed', e && e.message); }
+}
+const yes = (v, dflt) => (v == null || v === '' ? dflt : /^(y|yes|true|1|匿名|是)/i.test(String(v).trim()));
+async function drain() {
+  if (!hasNuo() || !nuo.actions) return;
+  let box;
+  try { box = await nuo.actions.inbox(); } catch (e) { return; }
+  if (!box || !box.length) return;
+  const results = {};
+  let changed = false;
+  for (const m of box) {
+    const a = m.args || {};
+    let ch = charById(m.charId);
+    if (!ch && m.charId != null) {
+      ch = { id: String(m.charId), name: m.charName || '角色' };
+      state.chars.push(ch);
+      state.charCfg[ch.id] = state.charCfg[ch.id] || { on: true, nick: ch.name, anon: 'sometimes' };
+    }
+    const cfg = ch ? state.charCfg[ch.id] : {};
+    const anon = yes(a.anon, cfg.anon === 'always');
+    const author = ch ? charAuthor(ch, anon) : npcAuthor();
+    if (m.actionId === 'writePost' && a.title_ko && a.body_ko) {
+      const p = makePost({
+        board: normBoard(a.board), author, generated: false, via: m.via,
+        title: { ko: clean(a.title_ko, 120), zh: clean(a.title_zh, 120) },
+        body: { ko: clean(a.body_ko, 3000), zh: clean(a.body_zh, 3000) },
+        createdAt: m.at || Date.now(), views: rand(5, 60),
+      });
+      state.posts.unshift(p);
+      results[m.id] = '已' + (anon ? '匿名' : '实名') + '发到수다판「' + BOARDS[p.board].zh + '」版，帖子 id：' + p.id;
+      changed = true;
+    } else if (m.actionId === 'writeComment' && a.ko) {
+      const pid = String(a.postId || '').replace(/\.mine$/, '');
+      const p = state.posts.find((x) => x.id === pid);
+      if (p) {
+        p.comments.push(makeComment({ author, text: { ko: clean(a.ko, 600), zh: clean(a.zh, 600) }, createdAt: m.at || Date.now() }));
+        results[m.id] = '已在「' + (p.title.zh || p.title.ko) + '」下' + (anon ? '匿名' : '实名') + '评论，现在是第 ' + p.comments.length + ' 楼';
+        changed = true;
+      } else results[m.id] = '没找到这个帖子（id ' + pid + '），评论没发出去';
+    } else results[m.id] = '内容不完整，没有发出去';
+  }
+  try { await nuo.actions.ack(box.map((m) => m.id), { results }); } catch (e) { console.warn('ack failed', e); }
+  if (changed) {
+    state.posts.sort((a, b) => b.createdAt - a.createdAt);
+    save();
+    toast('角色在聊天里往수다판写了东西 ✍️');
+    if (ui.view === 'list') renderList();
+    else if (ui.view === 'post') { renderHead(); renderComments(); }
+  }
+}
+
+/* ---------------- 名册 ---------------- */
+async function loadRoster() {
+  let list = [];
+  try { if (hasNuo() && nuo.roster) list = await nuo.roster.list(); } catch (e) { console.warn('roster.list', e && e.message); }
+  if ((!list || !list.length) && window.Nuojiji && Nuojiji.getCharList) {
+    try { list = await Nuojiji.getCharList(); } catch (e) { /* ignore */ }
+  }
+  list = asArray(list && list.chars ? list.chars : list);
+  const seen = new Set();
+  const chars = [];
+  for (const c of list) {
+    if (!c) continue;
+    const id = c.id != null ? c.id : (c.charId != null ? c.charId : c.cid);
+    if (id == null || seen.has(String(id))) continue;
+    seen.add(String(id));
+    chars.push({ id: String(id), name: String(c.name || c.nickname || c.displayName || c.title || ('角色' + id)) });
+  }
+  // 保留从收件匣里认识的角色
+  for (const c of state.chars) if (!seen.has(c.id)) chars.push(c);
+  state.chars = chars;
+  for (const c of chars) {
+    if (!state.charCfg[c.id]) state.charCfg[c.id] = { on: true, nick: c.name, anon: 'sometimes' };
+  }
+}
+
+/* ---------------- 渲染 ---------------- */
+const app = $('#app');
+function render() {
+  app.innerHTML = '';
+  app.classList.remove('night-theme');
+  if (ui.view === 'post' && curPost()) renderPostView();
+  else if (ui.view === 'write') renderWrite();
+  else if (ui.view === 'settings') renderSettings();
+  else { ui.view = 'list'; renderListView(); }
+  setBusy(ui.busy);
+}
+function progressBar() {
+  return h('div', { class: 'progress', id: 'progress' }, h('i', { class: 'dot' }), h('span'));
+}
+function goList() { ui.view = 'list'; ui.postId = null; render(); }
+function close() { try { Nuojiji.close(); } catch (e) { /* ignore */ } }
+
+function renderListView() {
+  const view = h('div', { class: 'view' });
+  view.append(
+    h('div', { class: 'topbar' },
+      h('button', { class: 'icon-btn', onclick: close, 'aria-label': '返回' }, '‹'),
+      h('div', { class: 'logo' }, 'sudapan', h('small', null, '수다판')),
+      h('div', { class: 'spacer' }),
+      h('button', { class: 'icon-btn', onclick: refresh, 'aria-label': '刷新', 'data-needs-idle': true }, h('span', { id: 'refreshIco', style: 'display:inline-block' }, '↻')),
+      h('button', { class: 'icon-btn', onclick: () => { ui.view = 'write'; render(); }, 'aria-label': '发帖' }, '✎'),
+      h('button', { class: 'icon-btn', onclick: () => { ui.view = 'settings'; render(); }, 'aria-label': '设置' }, '⚙︎'),
+    ),
+    progressBar(),
+  );
+  const tabs = h('div', { class: 'tabs' });
+  const tabList = [['hot', h('span', null, h('span', { class: 'hotdot' }, 'HOT'))], ['all', '전체']].concat(BOARD_KEYS.map((k) => [k, BOARDS[k].ko + (k === 'night' ? ' 🌙' : '')]));
+  for (const [k, label] of tabList) {
+    tabs.append(h('button', { class: 'tab' + (ui.board === k ? ' on' : ''), onclick: () => { ui.board = k; ui.listScroll = 0; render(); } }, label));
+  }
+  view.append(tabs, h('div', { class: 'scroll', id: 'listScroll' }));
+  app.append(view);
+  renderList();
+}
+function renderList() {
+  const sc = $('#listScroll');
+  if (!sc) return;
+  app.classList.toggle('night-theme', ui.board === 'night');
+  sc.innerHTML = '';
+  const hot = hotIds();
+  let posts;
+  const headName = ui.board === 'hot' ? ['HOT 게시판', '热门'] : ui.board === 'all' ? ['전체', '全部'] : [BOARDS[ui.board].ko, BOARDS[ui.board].zh];
+  if (ui.board === 'hot') posts = state.posts.slice().sort((a, b) => score(b) - score(a)).slice(0, 40);
+  else if (ui.board === 'all') posts = state.posts;
+  else posts = state.posts.filter((p) => p.board === ui.board);
+  sc.append(h('div', { class: 'board-head' }, h('b', null, headName[0]), h('span', null, headName[1] + ' · ' + posts.length + '개')));
+  if (!state.settings.hintClosed && state.settings.feed) {
+    const hint = h('div', { class: 'hint' },
+      h('div', null, '💡 想让角色也逛수다판：去聊天设定 →「自定义App供稿」勾上수다판。角色就能把帖子发给你、也能自己来发帖评论。'),
+      h('button', { onclick: () => { state.settings.hintClosed = true; save(); hint.remove(); }, 'aria-label': '关闭' }, '✕'));
+    sc.append(hint);
+  }
+  if (!posts.length) {
+    sc.append(h('div', { class: 'empty' },
+      h('div', null, '아직 글이 없어요 · 这里还没有帖子'),
+      h('button', { class: 'text-btn', onclick: refresh, 'data-needs-idle': true }, '↻ 让路人们先发几帖')));
+  }
+  for (const p of posts) {
+    const badges = [];
+    if (hot.has(p.id)) badges.push(h('span', { class: 'badge hot' }, 'HOT'));
+    if (p.author.kind === 'user') badges.push(h('span', { class: 'badge me' }, '나'));
+    if (p.author.kind === 'char' && (!p.author.anon || state.settings.revealAnonChar)) badges.push(h('span', { class: 'badge char' }, (p.author.anon ? '🔒' : '★') + (p.author.charName || p.author.name)));
+    sc.append(h('button', { class: 'row', onclick: () => openPost(p.id) },
+      h('div', { class: 'r-top' }, ui.board === 'hot' || ui.board === 'all' ? h('span', { class: 'cat' }, BOARDS[p.board].ko) : null, badges),
+      h('div', { class: 'r-title' }, p.title.ko, p.comments.length ? h('span', { class: 'cc' }, String(p.comments.length)) : null),
+      state.settings.showZh && p.title.zh ? h('div', { class: 'r-zh' }, p.title.zh) : null,
+      h('div', { class: 'r-meta' }, displayName(p.author) + ' · ' + fmtTime(p.createdAt) + ' · 조회 ' + fmtNum(p.views) + ' · 추천 ' + fmtNum(p.likes)),
+    ));
+  }
+  sc.append(h('div', { class: 'bottom-pad' }));
+  sc.scrollTop = ui.listScroll || 0;
+}
+
+function authorEl(a) {
+  const el = h('button', { class: 'author' }, displayName(a));
+  if (a.kind === 'user') el.append(' ', h('span', { class: 'badge me' }, '나'));
+  else if (a.kind === 'char') {
+    if (!a.anon) el.append(' ', h('span', { class: 'badge char' }, a.charName && a.charName !== a.name ? a.charName : '★'));
+    else if (state.settings.revealAnonChar) el.append(' ', h('span', { class: 'badge char' }, '🔒'));
+  }
+  if (a.kind === 'char' && a.anon) el.addEventListener('click', () => toast('其实是 ' + (a.charName || a.name) + ' 匿名发的 🤫'));
+  return el;
+}
+function zhBlock(obj, small) {
+  if (!state.settings.showZh) return null;
+  if (obj.zh) return small ? h('div', { class: 'zh c-zh' }, obj.zh) : h('div', { class: 'zh-box' }, h('div', { class: 'zh-label' }, '中文翻译'), h('div', { class: 'zh' }, obj.zh));
+  if (!hasHangul(obj.ko)) return null;
+  const btn = h('button', { class: 'tr-btn', 'data-needs-idle': true }, '번역 보기 · 翻译');
+  btn.addEventListener('click', async () => {
+    if (ui.busy) return;
+    setBusy('翻译中…');
+    try { await translate(obj); save(); } catch (e) { toast(e.message, 4000); }
+    setBusy('');
+    if (ui.view === 'post') { renderHead(); renderComments(); }
+  });
+  return small ? btn : h('div', { style: 'padding:0 14px' }, btn);
+}
+
+function renderPostView() {
+  const p = curPost();
+  const view = h('div', { class: 'view' });
+  view.append(
+    h('div', { class: 'topbar' },
+      h('button', { class: 'icon-btn', onclick: goList, 'aria-label': '返回' }, '‹'),
+      h('div', { class: 'tb-title' }, BOARDS[p.board].ko + ' ', h('span', { style: 'color:var(--sub);font-weight:400;font-size:13px' }, BOARDS[p.board].zh)),
+      h('button', { class: 'icon-btn', onclick: () => sharePost(p), 'aria-label': '分享到聊天' }, '↗'),
+    ),
+    progressBar(),
+    h('div', { class: 'scroll', id: 'postScroll' }, h('div', { id: 'postHead' }), h('div', { id: 'cmts' })),
+    h('div', { class: 'bar', id: 'bar' }),
+  );
+  app.append(view);
+  renderHead();
+  renderComments();
+  renderBar();
+}
+function renderHead() {
+  const p = curPost(), box = $('#postHead');
+  if (!p || !box) return;
+  box.innerHTML = '';
+  const liked = h('button', { class: 'like-btn' + (p.liked ? ' on' : ''), onclick: () => {
+    p.liked = !p.liked; p.likes += p.liked ? 1 : -1; save(); renderHead();
+  } }, p.liked ? '♥' : '♡', ' 추천 ' + fmtNum(p.likes));
+  box.append(
+    h('div', { class: 'post-head' },
+      h('div', { class: 'p-cat' }, BOARDS[p.board].ko),
+      h('div', { class: 'p-title' }, p.title.ko),
+      state.settings.showZh && p.title.zh ? h('div', { class: 'p-title-zh' }, p.title.zh) : null,
+      h('div', { class: 'p-meta' }, authorEl(p.author), h('span', null, fmtTime(p.createdAt)), h('span', null, '조회 ' + fmtNum(p.views)), h('span', null, '댓글 ' + p.comments.length)),
+    ),
+    h('div', { class: 'p-body' }, p.body.ko),
+    zhBlock(p.body, false),
+    h('div', { class: 'like-wrap' }, liked, h('button', { class: 'like-btn share', onclick: () => sharePost(p) }, '↗ 发到聊天')),
+  );
+}
+function renderComments(scrollEnd) {
+  const p = curPost(), box = $('#cmts');
+  if (!p || !box) return;
+  box.innerHTML = '';
+  box.append(h('div', { class: 'c-head' }, '댓글', h('span', null, String(p.comments.length))));
+  p.comments.forEach((c, i) => {
+    const cls = 'cmt' + (c.replyTo ? ' reply' : '') + (c.author.kind === 'user' ? ' mine' : '');
+    const toFloor = c.replyTo ? floorOf(p, c.replyTo) : 0;
+    box.append(h('div', { class: cls },
+      h('div', { class: 'c-meta' }, h('span', { class: 'c-no' }, (c.replyTo ? 'ㄴ ' : '') + (i + 1)), authorEl(c.author), h('span', null, fmtTime(c.createdAt))),
+      h('div', { class: 'c-text' }, toFloor ? h('span', { class: 'c-to' }, '@' + toFloor) : null, c.text.ko),
+      zhBlock(c.text, true),
+      h('div', { class: 'c-actions' },
+        h('button', { onclick: () => { ui.replyTo = c.id; renderBar(); const t = $('#cInput'); if (t) t.focus(); } }, '답글 回复'),
+        h('button', { onclick: () => { c.liked = !c.liked; c.likes += c.liked ? 1 : -1; save(); renderComments(); }, style: c.liked ? 'color:var(--hot)' : '' }, (c.liked ? '♥ ' : '♡ ') + (c.likes || 0)),
+      ),
+    ));
+  });
+  box.append(h('div', { class: 'typing', id: 'typing', style: ui.busy ? '' : 'display:none' }, '··· ' + ui.busy));
+  box.append(h('button', { class: 'more', onclick: moreComments, 'data-needs-idle': true }, '＋ 댓글 더 보기 · 看更多评论'), h('div', { class: 'bottom-pad' }));
+  if (scrollEnd) { const sc = $('#postScroll'); if (sc) sc.scrollTop = sc.scrollHeight; }
+}
+function renderBar() {
+  const p = curPost(), bar = $('#bar');
+  if (!p || !bar) return;
+  const old = $('#cInput');
+  const val = old ? old.value : '';
+  bar.innerHTML = '';
+  const target = ui.replyTo ? p.comments.find((c) => c.id === ui.replyTo) : null;
+  if (target) bar.append(h('div', { class: 'reply-to' }, h('span', null, 'ㄴ ' + floorOf(p, target.id) + '번 댓글에 답글 · 回复 ' + displayName(target.author)), h('button', { onclick: () => { ui.replyTo = null; renderBar(); } }, '✕')));
+  const ta = h('textarea', { id: 'cInput', rows: '1', placeholder: '댓글 쓰기 · 中文也行' });
+  ta.value = val;
+  ta.addEventListener('input', () => { ta.style.height = 'auto'; ta.style.height = Math.min(120, ta.scrollHeight) + 'px'; });
+  const anonBtn = h('button', { class: 'anon-chip' + (ui.cAnon ? ' on' : ''), onclick: () => { ui.cAnon = !ui.cAnon; renderBar(); } }, ui.cAnon ? '익명' : '실명');
+  const send = h('button', { class: 'send', 'data-needs-idle': true, onclick: () => {
+    const v = ta.value.trim();
+    if (!v || ui.busy) return;
+    ta.value = '';
+    ta.blur();
+    submitComment(v);
+  } }, '등록');
+  bar.append(h('div', { class: 'bar-row' }, anonBtn, ta, send));
+  setBusy(ui.busy);
+}
+async function sharePost(p) {
+  if (!hasNuo() || !nuo.chat || !nuo.chat.sendCard) { toast('当前环境不支持发卡片到聊天'); return; }
+  try { await nuo.chat.sendCard(postCard(p)); toast('已发到聊天 ✓'); }
+  catch (e) {
+    const m = String((e && e.message) || e);
+    toast(m === 'permissionDenied' ? '没有「发消息到聊天」权限：去 App 详情页授予' : '发送失败：' + m + '（可能需要先打开一个聊天）', 4000);
+  }
+}
+
+function renderWrite() {
+  const form = { board: BOARDS[ui.board] ? ui.board : 'chat', title: '', body: '', anon: state.settings.myAnon, tell: state.settings.nudgeOnPost };
+  const view = h('div', { class: 'view' });
+  const submit = h('button', { class: 'text-btn', 'data-needs-idle': true, onclick: () => {
+    form.title = $('#wTitle').value; form.body = $('#wBody').value;
+    $('#wTitle').blur(); $('#wBody').blur();
+    submitPost(form);
+  } }, '등록');
+  view.append(
+    h('div', { class: 'topbar' },
+      h('button', { class: 'icon-btn', onclick: goList, 'aria-label': '返回' }, '‹'),
+      h('div', { class: 'tb-title' }, '글쓰기 · 发帖'),
+      submit,
+    ),
+    progressBar(),
+  );
+  const chips = h('div', { class: 'chips' });
+  const drawChips = () => {
+    chips.innerHTML = '';
+    for (const k of BOARD_KEYS) chips.append(h('button', { class: 'chip' + (form.board === k ? ' on' : ''), onclick: () => { form.board = k; drawChips(); } }, BOARDS[k].ko + ' ' + BOARDS[k].zh));
+  };
+  drawChips();
+  const sw = (key, label, desc) => {
+    const b = h('button', { class: 'sw' + (form[key] ? ' on' : ''), 'aria-label': label });
+    b.addEventListener('click', () => { form[key] = !form[key]; b.classList.toggle('on', form[key]); });
+    return h('div', { class: 'switch-row' }, h('div', null, h('div', { class: 't' }, label), h('div', { class: 'd' }, desc)), b);
+  };
+  view.append(h('div', { class: 'scroll' }, h('div', { class: 'form' },
+    h('div', { class: 'field' }, h('span', { class: 'f-label' }, '版块'), chips),
+    h('div', { class: 'field' }, h('label', { for: 'wTitle' }, '제목 · 标题'), h('input', { class: 'inp', id: 'wTitle', maxlength: '80', placeholder: '中文或韩语都可以' })),
+    h('div', { class: 'field' }, h('label', { for: 'wBody' }, '내용 · 正文'), h('textarea', { class: 'inp', id: 'wBody', placeholder: '写中文就行，发布时会改写成韩语网络口吻并附上中文。' })),
+    sw('anon', '익명으로 쓰기 · 匿名发帖', '关掉则显示你的论坛昵称「' + (state.settings.myNick || '나') + '」'),
+    sw('tell', '告诉角色', '发完提醒正在聊天的角色来看（需要已在聊天设定里打开供稿）'),
+    h('p', { class: 'note' }, '发帖后会调用一次 AI 翻译并生成网友评论，可能还会有角色来留言。'),
+  )));
+  app.append(view);
+}
+
+function renderSettings() {
+  const s = state.settings;
+  const view = h('div', { class: 'view' });
+  view.append(h('div', { class: 'topbar' },
+    h('button', { class: 'icon-btn', onclick: () => { save(); goList(); }, 'aria-label': '返回' }, '‹'),
+    h('div', { class: 'tb-title' }, '설정 · 设置')), progressBar());
+  const sw = (key, label, desc, after) => {
+    const b = h('button', { class: 'sw' + (s[key] ? ' on' : ''), 'aria-label': label });
+    b.addEventListener('click', () => { s[key] = !s[key]; b.classList.toggle('on', s[key]); save(); if (after) after(); });
+    return h('div', { class: 'switch-row' }, h('div', null, h('div', { class: 't' }, label), desc ? h('div', { class: 'd' }, desc) : null), b);
+  };
+  const chipGroup = (opts, get, set) => {
+    const box = h('div', { class: 'chips' });
+    const draw = () => { box.innerHTML = ''; for (const [v, l] of opts) box.append(h('button', { class: 'chip' + (get() === v ? ' on' : ''), onclick: () => { set(v); save(); draw(); } }, l)); };
+    draw();
+    return box;
+  };
+  const nick = h('input', { class: 'inp', value: s.myNick, placeholder: '你的论坛昵称', maxlength: '20' });
+  nick.addEventListener('change', () => { s.myNick = nick.value.trim(); save(); });
+
+  const charBox = h('div');
+  if (!state.chars.length) {
+    charBox.append(h('p', { class: 'note' }, '没读到角色名册。需要「读取角色名册」权限：去 App 详情页点「授予这些能力」，然后重新打开수다판。'));
+  }
+  for (const ch of state.chars) {
+    const cfg = state.charCfg[ch.id];
+    const card = h('div', { class: 'char-card' + (cfg.on === false ? ' off' : '') });
+    const onSw = h('button', { class: 'sw' + (cfg.on !== false ? ' on' : ''), 'aria-label': '参与' });
+    onSw.addEventListener('click', () => { cfg.on = cfg.on === false; onSw.classList.toggle('on', cfg.on); card.classList.toggle('off', !cfg.on); save(); });
+    const nk = h('input', { class: 'inp', value: cfg.nick || ch.name, maxlength: '20', placeholder: '实名时显示的论坛昵称' });
+    nk.addEventListener('change', () => { cfg.nick = nk.value.trim() || ch.name; save(); });
+    card.append(
+      h('div', { class: 'top' }, h('div', { class: 'nm' }, ch.name), onSw),
+      h('div', { class: 'sub' },
+        h('span', { class: 'f-label' }, '论坛昵称（实名时显示）'), nk,
+        h('span', { class: 'f-label' }, '发言方式'),
+        chipGroup([['always', '总是匿名'], ['sometimes', '有时匿名'], ['never', '总是实名']], () => cfg.anon, (v) => { cfg.anon = v; })),
+    );
+    charBox.append(card);
+  }
+
+  view.append(h('div', { class: 'scroll' }, h('div', { class: 'form' },
+    h('div', { class: 'sec' }, '我'),
+    h('div', { class: 'field' }, h('span', { class: 'f-label' }, '论坛昵称（实名发帖/评论时显示）'), nick),
+    sw('myAnon', '默认匿名', '发帖和评论时默认匿名，每次都可以单独切换'),
+
+    h('div', { class: 'sec' }, '角色'),
+    h('p', { class: 'note' }, '打开的角色会以自己的人设出现在论坛：刷新时可能发帖，看帖时可能留言，回复 TA 的评论 TA 会回你。'),
+    charBox,
+    h('div', { class: 'field' }, h('span', { class: 'f-label' }, '角色出没频率（越高越花 AI 额度）'),
+      chipGroup([['low', '低'], ['normal', '中'], ['high', '高']], () => s.activity, (v) => { s.activity = v; })),
+    sw('revealAnonChar', '标出匿名的角色', '在匿名角色旁显示 🔒 小标记，点名字可看是谁（只有你看得到）', () => render()),
+
+    h('div', { class: 'sec' }, '显示'),
+    sw('showZh', '显示中文翻译', '关掉后只看韩语，需要时点「翻译」'),
+
+    h('div', { class: 'sec' }, '聊天联动'),
+    h('p', { class: 'note' }, '还需要在聊天设定 →「自定义App供稿」里勾上수다판（每个聊天单独设置，默认关闭）。'),
+    sw('feed', '让角色看到论坛', '把热帖和你们的帖子告诉角色，角色可以在聊天里把帖子发给你', () => publishFeed()),
+    sw('actions', '允许角色在聊天中发帖/评论', '角色写的内容会出现在论坛里，聊天中也会留一条记录', () => declareActions()),
+    h('div', { class: 'field', style: 'margin-top:12px' }, h('span', { class: 'f-label' }, '角色主动发帖的积极程度'),
+      chipGroup([['low', '只在我要求时'], ['normal', '适当'], ['high', '积极']], () => s.eagerness, (v) => { s.eagerness = v; declareActions(); })),
+    sw('nudgeOnPost', '发帖后默认「告诉角色」', '回复角色的评论时也会悄悄提醒 TA'),
+
+    h('div', { class: 'sec' }, '数据'),
+    h('p', { class: 'note' }, '共 ' + state.posts.length + ' 个帖子。数据跟着糯叽机备份走。'),
+    h('button', { class: 'danger', onclick: () => {
+      if (!confirm('清空所有帖子？（设置会保留）')) return;
+      state.posts = []; save(); publishFeed(); toast('已清空');
+      render();
+    } }, '清空所有帖子'),
+    h('div', { class: 'bottom-pad' }),
+  )));
+  app.append(view);
+}
+
+/* ---------------- 启动 ---------------- */
+function waitNuo() {
+  return new Promise((res) => {
+    let n = 0;
+    (function t() { if (hasNuo() || n++ > 30) return res(hasNuo()); setTimeout(t, 100); })();
+  });
+}
+function organicGrowth() {
+  // 离开期间帖子自然涨一点浏览和推荐
+  const now = Date.now();
+  const hours = state.lastOpen ? Math.min(48, (now - state.lastOpen) / 3600e3) : 0;
+  if (hours < 0.2) return;
+  for (const p of state.posts) {
+    const age = (now - p.createdAt) / 3600e3;
+    if (age > 72) continue;
+    p.views += Math.floor(rand(5, 60) * hours / (1 + age / 12));
+    if (Math.random() < 0.5) p.likes += Math.floor(rand(0, 6) * Math.min(hours, 6) / (1 + age / 12));
+  }
+}
+async function boot() {
+  render();
+  const ok = await waitNuo();
+  if (!ok) { toast('需要在糯叽机里运行（没找到 nuo 接口）', 5000); }
+  const [posts, settings, charCfg, lastOpen] = await Promise.all([store.get('posts'), store.get('settings'), store.get('charCfg'), store.get('lastOpen')]);
+  if (Array.isArray(posts)) state.posts = posts;
+  if (settings && typeof settings === 'object') Object.assign(state.settings, settings);
+  if (charCfg && typeof charCfg === 'object') state.charCfg = charCfg;
+  state.lastOpen = Number(lastOpen) || 0;
+  ui.cAnon = state.settings.myAnon;
+  if (!state.settings.myNick && window.Nuojiji && Nuojiji.getUser) {
+    try { const u = await Nuojiji.getUser(); state.settings.myNick = (u && (u.nickname || u.name)) || ''; } catch (e) { /* ignore */ }
+  }
+  await loadRoster();
+  organicGrowth();
+  store.set('lastOpen', Date.now());
+  save();
+  render();
+  if (ok) {
+    if (nuo.on) nuo.on('appAction', drain);
+    await declareActions();
+    await drain();
+    publishFeed();
+  }
+}
+boot();
+</script>
+</body>
+</html>
