@@ -9,7 +9,7 @@
   "id": "sudapan-forum",
   "name": "수다판",
   "icon": "💬",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "chrome": "none",
   "permissions": ["ai", "roster.read", "feed.publish", "feed.actions", "chat.send"]
 }
@@ -192,7 +192,8 @@ const BOARDS = {
   movie: { ko: '영화·드라마', zh: '影视', topics: '드라마·영화 감상, 연기 얘기, 결말 토론, 작품 추천 요청, 명장면, OST, 시청률/캐스팅 소식(가상)' },
   chat:  { ko: '잡담', zh: '闲聊', topics: '일상 잡담, 회사/학교, 음식·배달, 쇼핑, 소소한 질문, 웃긴 썰, 나만 그래?' },
   love:  { ko: '연애', zh: '情感', topics: '연애 고민, 썸, 짝사랑, 이별, 결혼, 친구·가족 관계, 인간관계 손절' },
-  night: { ko: '심야', zh: '深夜', topics: '새벽 감성, 잠 안 올 때, 무서운 썰, 진지한 고백, 외로움, 야식, 인생 고민' },
+  night: { ko: '심야', zh: '深夜', topics: '19금 성인 토크, 연애·성(性) 고민, 연인과의 스킨십/잠자리 썰, 남들한테 말 못 하는 취향, 아무한테도 말 못 한 비밀, 들키면 안 되는 속마음, 새벽에만 할 수 있는 고백',
+    rule: '【심야版规则】这是 19+ 成人深夜版：可以坦率地聊两性话题、性经验、性癖和成人向（NSFW）内容，也可以是不可告人的心事和秘密；语气像匿名论坛里深夜放飞的真实成年网友，可以用 19、ㅅㅅ、ㅇㅇ 之类的暗语，露骨程度自然即可。所有涉及的人物都必须是成年人；不涉及未成年人、真实存在的人物，也不美化非自愿行为。' },
 };
 const BOARD_KEYS = Object.keys(BOARDS);
 const ANON = '무명의 수다러';
@@ -407,6 +408,7 @@ function authorForPrompt(a, forCharId) {
 }
 function postContext(p, forCharId, maxC) {
   const lines = [
+    boardRule(p.board),
     '【帖子】[' + BOARDS[p.board].ko + '] ' + p.title.ko,
     p.body.ko,
     '发帖人：' + authorForPrompt(p.author, forCharId),
@@ -422,6 +424,7 @@ function postContext(p, forCharId, maxC) {
   }
   return lines.join('\n');
 }
+function boardRule(b) { return BOARDS[b] && BOARDS[b].rule ? BOARDS[b].rule + '\n' : ''; }
 const floorOf = (p, cid) => p.comments.findIndex((c) => c.id === cid) + 1;
 
 async function genNpcPosts(boardKey) {
@@ -430,6 +433,7 @@ async function genNpcPosts(boardKey) {
   const recent = state.posts.slice(0, 30).map((p) => p.title.ko).join(' / ');
   const prompt = [
     '生成 ' + n + ' 个新帖子，版块只能从这些里选：' + boards.map((b) => b + '(' + BOARDS[b].ko + '：' + BOARDS[b].topics + ')').join('；'),
+    boards.map(boardRule).join(''),
     '返回 JSON 数组，每项格式：',
     '{"board":"' + boards.join('|') + '","title_ko":"","title_zh":"","body_ko":"","body_zh":"","comments":[{"ko":"","zh":""}]}',
     '要求：body 2~8 行（可用 \\n 换行）；comments 3~6 条短评论（有人共感、有人吐槽、有人跑题）；题材彼此不同。',
@@ -465,7 +469,8 @@ async function genCharPost(ch, boardKey) {
   const boards = BOARDS[boardKey] ? [boardKey] : BOARD_KEYS;
   const prompt = [
     '挑一个你此刻真的想在论坛上发的话题（可以是你最近的经历、心事、对什么的感想、想问网友的问题），',
-    '版块从这些里选：' + boards.map((b) => b + '(' + BOARDS[b].ko + ')').join('、') + '。',
+    '版块从这些里选：' + boards.map((b) => b + '(' + BOARDS[b].ko + '：' + BOARDS[b].topics + ')').join('、') + '。',
+    boards.map(boardRule).join(''),
     '返回 JSON：{"board":"","title_ko":"","title_zh":"","body_ko":"","body_zh":""}，body 2~8 行。',
   ].join('\n');
   const text = await ai([{ role: 'system', content: charSystem(ch, anon) }, { role: 'user', content: prompt }], { charId: ch.id });
@@ -590,6 +595,7 @@ async function submitPost(form) {
   setBusy('翻译成韩语并等待网友评论…');
   try {
     const prompt = [
+      boardRule(p.board),
       '用户要在「' + BOARDS[p.board].ko + '」版发帖，原文可能是中文也可能是韩语：',
       '标题：' + title, '正文：' + body,
       '1) 改写成韩国网络社区口吻的韩语 title_ko / body_ko（保持原意，不要加戏；原文已是韩语就基本保留），并给出中文 title_zh / body_zh（原文是中文就保留原文）；',
